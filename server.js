@@ -1,6 +1,11 @@
 const express = require('express');
 const slug = require('slug');
 const arrayify = require('array-back');
+const dotenv = require('dotenv').config();
+const { MongoClient }= require('mongodb');
+const { ObjectId } = require('mongodb');
+
+
 
 /*****************************************************
  * Define some constants and variables
@@ -9,6 +14,7 @@ const arrayify = require('array-back');
 const app = express();
 const port = 5555;
 const categories = ["action", "adventure", "sci-fi", "animation", "horror", "thriller", "fantasy", "mystery", "comedy", "family"];
+let db = null;
 
 /*****************************************************
  * Middleware
@@ -94,6 +100,24 @@ app.use(function (req, res) {
     res.status(404).render('404', {title: "Error 404: page not found"});
 });
 
+
+/*****************************************************
+ * Connect to database
+ ****************************************************/
+async function connectDB() {
+    const uri = process.env.DB_URI;
+    const client = new MongoClient(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    });
+    try {
+        await client.connect();
+        db = client.db(process.env.DB_NAME);
+    } catch (error) {
+        throw error;
+    }
+}
+
 /*****************************************************
  * Start webserver
  ****************************************************/
@@ -102,5 +126,7 @@ app.listen(port, () => {
     console.log('==================================================\n\n')
     console.log(`Webserver running on http://localhost:${port}\n\n`);
     console.log('==================================================\n\n')
+
+    connectDB().then( () => console.log("We have a connection to mongo!"));
 });
 
