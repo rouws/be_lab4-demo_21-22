@@ -1,6 +1,11 @@
 const express = require('express');
 const slug = require('slug');
 const arrayify = require('array-back');
+const dotenv = require('dotenv').config();
+const { MongoClient }= require('mongodb');
+const { ObjectId } = require('mongodb');
+
+
 
 /*****************************************************
  * Define some constants and variables
@@ -9,6 +14,7 @@ const arrayify = require('array-back');
 const app = express();
 const port = 5555;
 const categories = ["action", "adventure", "sci-fi", "animation", "horror", "thriller", "fantasy", "mystery", "comedy", "family"];
+let db = null;
 
 /*****************************************************
  * Middleware
@@ -35,24 +41,23 @@ app.set('view engine', 'ejs');
  *   add movie and show movielist
  ****************************************************/
 
-app.get('/',  (req, res) => {
+app.get('/', async (req, res) => {
     // GET LIST OF MOVIES
-    // TODO
-    console.log("TODO: get movie list from DB")
-    const movies = [];
+    const query = {}
+    const options = {sort : {year:-1, name:1}}
+    const movies = await db.collection('movies').find(query, options).toArray();
 
     // RENDER PAGE
     const title  = (movies.length == 0) ? "No movies were found" : "Movies";
     res.render('movielist', {title, movies});
 });
 
-app.get('/movies/:movieId/:slug', (req, res) => {
+app.get('/movies/:movieId/:slug', async (req, res) => {
 
     // FIND MOVIE
     const id = req.params.movieId;
-    // TODO
-    console.log("TODO: get movie from DB");
-    const movie = {};
+    const query = {_id: ObjectId(req.params.movieId)}
+    const movie = await db.collection('movies').findOne(query);
 
     // RENDER PAGE
     const title = `Moviedetails for ${movie.name}`;
@@ -63,7 +68,7 @@ app.get('/movies/add', (req, res) => {
     res.render('addmovie', {title: "Add a movie", categories});
 });
 
-app.post('/movies/add', (req, res) => {
+app.post('/movies/add', async (req, res) => {
     // ADD MOVIE 
     let movie = {
         slug: slug(req.body.name),
@@ -72,13 +77,12 @@ app.post('/movies/add', (req, res) => {
         categories: arrayify(req.body.categories), 
         storyline: req.body.storyline
     };
-    // TODO
-    console.log("TODO: add movie to database")
+    await db.collection('movies').insertOne(movie);
 
     // GET LIST OF ALL MOVIES
-    // TODO
-    console.log("TODO: get list of all movies from database")
-    const movies = [];
+    const query = {}
+    const options = {sort : {year:-1, name:1}}
+    const movies = await db.collection('movies').find(query, options).toArray();
 
     // RENDER PAGE
     const title =  "Succesfully added the movie";
@@ -94,6 +98,24 @@ app.use(function (req, res) {
     res.status(404).render('404', {title: "Error 404: page not found"});
 });
 
+
+/*****************************************************
+ * Connect to database
+ ****************************************************/
+async function connectDB() {
+    const uri = process.env.DB_URI;
+    const client = new MongoClient(uri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    });
+    try {
+        await client.connect();
+        db = client.db(process.env.DB_NAME);
+    } catch (error) {
+        throw error;
+    }
+}
+
 /*****************************************************
  * Start webserver
  ****************************************************/
@@ -102,5 +124,7 @@ app.listen(port, () => {
     console.log('==================================================\n\n')
     console.log(`Webserver running on http://localhost:${port}\n\n`);
     console.log('==================================================\n\n')
+
+    connectDB().then( () => console.log("We have a connection to mongo!"));
 });
 
